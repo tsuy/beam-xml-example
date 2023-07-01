@@ -201,6 +201,18 @@ public class BookAnalyser {
               public void processElement(
                       @Element Book element, OutputReceiver<String> receiver) {
 
+                long startTime = System.currentTimeMillis();
+                long endTime = startTime + 3 * 60 * 1000; // 5 minutes in milliseconds
+
+                // Perform the mathematical calculation
+                while (System.currentTimeMillis() < endTime) {
+                  // Insert your mathematical calculation here
+                  // This example calculates the sum of numbers from 1 to 1000000000
+                  long sum = 0;
+                  for (long i = 1; i <= 1000000000; i++) {
+                    sum += i;
+                  }
+                }
                 System.out.println("Xml data: " + element.getName());
                 System.out.println("Xml data: " + element.getAddress().getCity());
                 receiver.output(element.getName());
