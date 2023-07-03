@@ -48,111 +48,40 @@ import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 
-/**
- * An example that counts words in Shakespeare and includes Beam best practices.
- *
- * <p>This class, {@link BookAnalyser}, is the second in a series of four successively more detailed
- * 'word count' examples. You may first want to take a look at {@link MinimalWordCount}. After
- * you've looked at this example, then see the {@link DebuggingWordCount} pipeline, for introduction
- * of additional concepts.
- *
- * <p>For a detailed walkthrough of this example, see <a
- * href="https://beam.apache.org/get-started/wordcount-example/">
- * https://beam.apache.org/get-started/wordcount-example/ </a>
- *
- * <p>Basic concepts, also in the MinimalWordCount example: Reading text files; counting a
- * PCollection; writing to text files
- *
- * <p>New Concepts:
- *
- * <pre>
- *   1. Executing a Pipeline both locally and using the selected runner
- *   2. Using ParDo with static DoFns defined out-of-line
- *   3. Building a composite transform
- *   4. Defining your own pipeline options
- * </pre>
- *
- * <p>Concept #1: you can execute this pipeline either locally or using by selecting another runner.
- * These are now command-line options and not hard-coded as they were in the MinimalWordCount
- * example.
- *
- * <p>To change the runner, specify:
- *
- * <pre>{@code
- * --runner=YOUR_SELECTED_RUNNER
- * }</pre>
- *
- * <p>To execute this pipeline, specify a local output file (if using the {@code DirectRunner}) or
- * output prefix on a supported distributed file system.
- *
- * <pre>{@code
- * --output=[YOUR_LOCAL_FILE | YOUR_OUTPUT_PREFIX]
- * }</pre>
- *
- * <p>The input file defaults to a public data set containing the text of King Lear, by William
- * Shakespeare. You can override it and choose your own input with {@code --inputFile}.
- */
 public class BookAnalyser {
 
-  /**
-   * Concept #2: You can make your pipeline assembly code less verbose by defining your DoFns
-   * statically out-of-line. This DoFn tokenizes lines of text into individual words; we pass it to
-   * a ParDo in the pipeline.
-   */
-  static class ExtractWordsFn extends DoFn<String, String> {
-    private final Counter emptyLines = Metrics.counter(ExtractWordsFn.class, "emptyLines");
-    private final Distribution lineLenDist =
-        Metrics.distribution(ExtractWordsFn.class, "lineLenDistro");
+  public static class BookAnalyserT
+          extends PTransform<PCollection<Book>, PCollection<String>> {
+    @Override
+    public PCollection<String> expand(PCollection<Book> lines) {
 
+      PCollection<String> words = lines.apply(ParDo.of(new BookAnalyser.BookAnalyserFn()));
+
+      return words;
+    }
+  }
+
+  static class BookAnalyserFn extends DoFn<Book, String> {
     @ProcessElement
-    public void processElement(@Element String element, OutputReceiver<String> receiver) {
-      lineLenDist.update(element.length());
-      if (element.trim().isEmpty()) {
-        emptyLines.inc();
-      }
+    public void processElement(
+            @Element Book element, OutputReceiver<String> receiver) {
 
-      // Split the line into words.
-      String[] words = element.split(ExampleUtils.TOKENIZER_PATTERN, -1);
+     /* long startTime = System.currentTimeMillis();
+      long endTime = startTime + 30 * 1000; // 5 minutes in milliseconds
 
-      // Output each word encountered into the output PCollection.
-      for (String word : words) {
-        if (!word.isEmpty()) {
-          receiver.output(word);
+
+      while (System.currentTimeMillis() < endTime) {
+        long sum = 0;
+        for (long i = 1; i <= 1000000000; i++) {
+          sum += i;
         }
-      }
+      }*/
+      System.out.println("Xml data: " + element.getName());
+      System.out.println("Xml data: " + element.getAddress().getCity());
+      receiver.output(element.getName());
     }
   }
 
-  /** A SimpleFunction that converts a Word and Count into a printable string. */
-  public static class FormatAsTextFn extends SimpleFunction<KV<String, Long>, String> {
-    @Override
-    public String apply(KV<String, Long> input) {
-      return input.getKey() + ": " + input.getValue();
-    }
-  }
-
-  /**
-   * A PTransform that converts a PCollection containing lines of text into a PCollection of
-   * formatted word counts.
-   *
-   * <p>Concept #3: This is a custom composite transform that bundles two transforms (ParDo and
-   * Count) as a reusable PTransform subclass. Using composite transforms allows for easy reuse,
-   * modular testing, and an improved monitoring experience.
-   */
-  public static class BookAnalyzer
-      extends PTransform<PCollection<String>, PCollection<KV<String, Long>>> {
-    @Override
-    public PCollection<KV<String, Long>> expand(PCollection<String> lines) {
-
-      // Convert lines of text into individual words.
-      PCollection<String> words = lines.apply(ParDo.of(new ExtractWordsFn()));
-
-      // Count the number of times each word occurs.
-      PCollection<KV<String, Long>> wordCounts = words.apply(Count.perElement());
-
-      return wordCounts;
-    }
-  }
 
   /**
    * Options supported by {@link BookAnalyser}.
@@ -195,29 +124,7 @@ public class BookAnalyser {
                     .withRootElement("books")
                     .withRecordElement("book")
                     .withRecordClass(Book.class))
-            .apply(ParDo.of(new DoFn<Book, String>() {
-
-              @ProcessElement
-              public void processElement(
-                      @Element Book element, OutputReceiver<String> receiver) {
-
-                long startTime = System.currentTimeMillis();
-                long endTime = startTime + 3 * 60 * 1000; // 5 minutes in milliseconds
-
-                // Perform the mathematical calculation
-                while (System.currentTimeMillis() < endTime) {
-                  // Insert your mathematical calculation here
-                  // This example calculates the sum of numbers from 1 to 1000000000
-                  long sum = 0;
-                  for (long i = 1; i <= 1000000000; i++) {
-                    sum += i;
-                  }
-                }
-                System.out.println("Xml data: " + element.getName());
-                System.out.println("Xml data: " + element.getAddress().getCity());
-                receiver.output(element.getName());
-              }
-            }))
+            .apply(new BookAnalyserT())
             .apply("WriteBooks", TextIO.write().to(options.getOutput()));
 
     p.run().waitUntilFinish();
